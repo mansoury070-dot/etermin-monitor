@@ -16,6 +16,7 @@ OFFICE_COLLECTION = {
     "Ausländerbehörde Hamborn": ("stadt-duisburg-abh-homberg", 53036),
     "Ausländerbehörde Homberg": ("stadt-duisburg-abh-homberg", 53036),
     "Straßenverkehrsamt": ("stadt-duisburg-zul", 51901),
+    "Fahrerlaubnisbehörde": ("qterminstadtduisburgstva", 41433),
     "Bürgerservice": ("stadt-duisburg", 39575) 
     }
 
