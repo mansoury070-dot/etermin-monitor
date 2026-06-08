@@ -6,7 +6,7 @@ Due to the high demand and limited availability of appointments, this bot contin
 ## Features
 
 - **Graphical User Interface (GUI)** with Streamlit
-  A simple and user-friendly interface to configure settings and choose your preferred mode of operation.
+  - A simple and user-friendly interface to configure settings and choose your preferred mode of operation.
 
 - **Telegram Notification Mode**
   - Sends real-time notifications to your Telegram when appointments become available.
