@@ -48,15 +48,25 @@ Due to the high demand and limited availability of appointments, this bot contin
 
 To set up and run this project locally, you need to install the required dependencies.
 1. Clone this repository:
-   ```bash git clone https://github.com/mansoury070-dot/etermin-monitor.git```
+   ```bash
+   git clone https://github.com/mansoury070-dot/etermin-monitor.git
+   ```
 2. Navigate to the project folder:
-   ```bash cd etermin-monitor```
+   ```bash
+   cd etermin-monitor
+   ```
 3. Install the required libraries:
-   ```bash pip install -r requirements.txt```
+   ```bash
+   pip install -r requirements.txt
+   ```
 4. Start the application:
-   ```bash streamlit run app.py```
+   ```bash
+   streamlit run app.py
+   ```
    or if it did not work
-   ```bash python -m streamlit run app.py```  
+   ```bash
+   python -m streamlit run app.py
+   ```  
 
 ## Telegram Setup
 
