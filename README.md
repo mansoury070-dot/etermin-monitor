@@ -58,6 +58,17 @@ To set up and run this project locally, you need to install the required depende
    or if it did not work
    ```bash python -m streamlit run app.py```  
 
+## Telegram Setup
+
+To receive real-time notifications for available appointments, you need to configure your Telegram bot credentials:
+
+1. **Create a Bot**: Open Telegram, search for **@BotFather**, and create a new bot to receive your `BOT_TOKEN`.
+2. **Configure Environment**: 
+   - Create `.env` file in the project root and add:
+
+```text
+     MY_TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
+     ```
 ------------------------------------------------
 
 ## Disclaimer
