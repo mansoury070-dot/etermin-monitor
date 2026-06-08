@@ -253,10 +253,10 @@ def construct_appointment_details(appointment_data=None, user_data=None,
     }
 
 def style_annotation(html_snippet):
-    unimportant_html = '<b><u>Hier klicken</u> und damit die Dienstleistung auswählen, dann "weiter zur Terminwahl".</b><br><br>'
+    unimportant_html = r'<b><u>Hier klicken</u> und damit die Dienstleistung auswählen, dann \\*"weiter zur Terminwahl\\*"\.*</b><br><br>'
 
-    if unimportant_html in html_snippet:
-        html_snippet = html_snippet.replace(unimportant_html, "")
+
+    html_snippet = re.sub(unimportant_html, "", html_snippet, flags=re.IGNORECASE)
         
     refined_html = re.sub(r'href=["\']?([^ >"\']+)["\']?', r'href="\1"', html_snippet)
     styled_snippet = f"""
