@@ -68,8 +68,9 @@ To receive real-time notifications for available appointments, you need to confi
 
 ```text
      MY_TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-     ```
-------------------------------------------------
+```
+
+---
 
 ## Disclaimer
 
