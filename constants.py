@@ -1,13 +1,18 @@
-
+import streamlit as st
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-CONFIG_FILE = "user_config.json"
-MY_BOT_TOKEN = os.getenv("MY_TELEGRAM_BOT_TOKEN")
+def get_secret_value(key):
+    if key in st.secrets:
+        return st.secrests[key]
+    return os.getenv(key)
+
+
+MY_BOT_TOKEN = get_secret_value("MY_TELEGRAM_BOT_TOKEN")
 MY_BOT_USERNAME = "my_appointment_app_bot"
-ENCRYPT_KEY = os.getenv("ENCRYPT_KEY")
+ENCRYPT_KEY = get_secret_value("ENCRYPT_KEY")
 
 
 
