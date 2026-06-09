@@ -6,7 +6,7 @@ load_dotenv()
 
 def get_secret_value(key):
     if key in st.secrets:
-        return st.secrests[key]
+        return st.secrets[key]
     return os.getenv(key)
 
 
