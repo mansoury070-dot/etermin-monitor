@@ -44,25 +44,25 @@ def date_or_time_slot_params(target_date="", settings={}):
     return {
         'date': (target_date if target_date else date.today().isoformat()),
         'serviceid': settings['serviceid'],
-        'capacity': 1, #settings['capacity']
+        'capacity': 1,
         **({'rangesearch': 1} if not target_date else {}),
         'caching': settings['caching'],
         'duration': 0 if settings['captype'] == -1 else settings['duration'],
         'cluster': settings['cluster'],
-        'slottype': 0, #fixed
+        'slottype': 0,
         'fillcalendarstrategy': settings['fillcalendarstrategy'] if settings['fcs'] in [-1, "-1", None, ""] else settings['fcs'], 
         'showavcap': showavcap,
         'appfuture': settings['appfuture'],
         'appdeadline': settings['appdeadline'],
         'appdeadlinewm': settings['appdeadlinewm'],
-        'oneoff': 'null', #fixed
+        'oneoff': 'null', 
         'msdcm': settings['msdcm'],
         **(
             {
                 'tz': 'W. Europe Standard Time',
                 'tzaccount': 'W. Europe Standard Time'
             } if target_date else {}),
-        'calendarid': '' #fixed
+        'calendarid': '' 
     }
 
 def form_params(settings=None):
@@ -96,7 +96,7 @@ def limit_reached_params(date="", settings={}, user_data={}):
 
 def get_customer_confirm(service_cc, setting_cc):
     if service_cc == -1:
-        return setting_cc ## in the general setting "customerconfirm": True or False
+        return setting_cc # in the general setting "customerconfirm": True or False
     elif service_cc == 0:
         return False
     else:
@@ -108,8 +108,6 @@ def construct_book_data(webid, settings={}, user_data={}, form_data=[], appointm
     
     
     location = f"{settings['street']}, {settings['zip']} {settings['city']}"
-    enable_capacity = False if not settings['enablecapacity'] else True
-    print("enable capacity:", enable_capacity)
     return {
         'language': settings['language'],
         'bookingtype': 'Internet',

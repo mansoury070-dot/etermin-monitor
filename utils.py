@@ -1,47 +1,48 @@
 import streamlit as st
 import time
-from datetime import datetime
+import datetime
 import random
 import re 
-import os
-import json
 import urllib.parse
 from bs4 import BeautifulSoup
-from constants import CONFIG_FILE
+from constants import ENCRYPT_KEY
 import request_handler as rh
 import parameters as p
+from cryptography.fernet import Fernet, InvalidToken
 
 ############################################ Session State Intialization ######################################################
 
-def initialize_session_state():
+def initialize_session_state(cookie):
     """ initializes all required session state variables"""
+    if "current_page" not in st.session_state: #optimization clause, we do not want to create this dictionary with every rerun!
+        default_values = {
+            "current_page": "home_page",
+            "selection": {
+                "selected_office": "--Bitte wählen--",
+                "selected_group": "--Bitte wählen--",
+                "selected_service": "--Bitte wählen--"
+            },
+            "price": None,
+            "selected_method": "Reservieren",
+            "bot_running": False,
+            "found_dates": [],
+            "found_slots": {},
+            "state_date_key": {},
+            "user_data": {},
+            "is_user_data_valid": False,
+            "desired_time": "08:00 - 10:00",
+            "decision": "Nein",
+            "flash_messages": {},
+            "booking_progress": {},
+            "book_data": {}
+        }
 
-    default_values = {
-        "current_page": "home_page",
-        "selection": {
-            "selected_office": "--Bitte wählen--",
-            "selected_group": "--Bitte wählen--",
-            "selected_service": "--Bitte wählen--"
-        },
-        "price": None,
-        "selected_method": "Reservieren",
-        "bot_running": False,
-        "found_dates": [],
-        "found_slots": {},
-        "state_date_key": {},
-        "user_data": {},
-        "is_user_data_valid": False,
-        "chat_id": load_chat_id(),
-        "desired_time": "08:00 - 10:00",
-        "decision": "Nein",
-        "flash_messages": {},
-        "booking_progress": {},
-        "book_data": {}
-    }
-
-    for key, value in default_values.items():
-        if key not in st.session_state:
-            st.session_state[key] = value
+        for key, value in default_values.items():
+            if key not in st.session_state:
+                st.session_state[key] = value
+    
+    if "chat_id" not in st.session_state or not st.session_state["chat_id"]: # "or" is essential here, because get_cookie() returns None with the first run!
+        st.session_state["chat_id"] = get_cookie(cookie)
 
 ###############################################################################################################################
 
@@ -116,8 +117,6 @@ def validating_user_input(form_fields, user_data):
     validated_data = {}
     for index, (key, value) in enumerate(user_data.items()):
         if form_fields[index].get("Regex"):
-            print(key)
-            print(form_fields[index].get("Regex"))
             is_match = re.fullmatch(form_fields[index]["Regex"], value, re.IGNORECASE)
             validated_data[key] = True if is_match else False
 
@@ -134,20 +133,29 @@ def validating_user_input(form_fields, user_data):
 
 ######################################################## Telegram Utils #######################################################
 
-def load_chat_id():
-    """ Function to load the chat ID from a JSON file if it exists """
-    if os.path.exists(CONFIG_FILE):
-        if os.path.getsize(CONFIG_FILE) > 0:
-            with open(CONFIG_FILE, "r") as file:
-                data = json.load(file)
-                return data.get("chat_id")
-    return None
 
-def save_chat_id(chat_id):
-    """ Function to save the chat ID to a local JSON file """
-    data = {"chat_id": chat_id}
-    with open(CONFIG_FILE, "w") as file:
-        json.dump(data, file)
+token_bytes = ENCRYPT_KEY.encode()
+cipher = Fernet(token_bytes)
+
+
+def encrypt_chat_id(chat_id):
+    encrypted_chat_id = cipher.encrypt(str(chat_id).encode())
+    return encrypted_chat_id.decode()
+
+def set_cookie(cookie, encrypted_value):
+    expiration_date = datetime.datetime.now() + datetime.timedelta(days=100)
+    cookie.set(cookie="telegram_chat_id", val=encrypted_value, expires_at=expiration_date)
+
+def get_cookie(cookie):
+    chat_id_encrypted = cookie.get(cookie="telegram_chat_id")
+    if chat_id_encrypted:
+        try:
+            chat_id_encrypted_bytes = chat_id_encrypted.encode()
+            chat_id = cipher.decrypt(chat_id_encrypted_bytes)
+            return chat_id.decode()
+        except InvalidToken:
+            return None
+    return None
 
 ###############################################################################################################################
 
@@ -158,8 +166,8 @@ def desired_time_request(desired_time, headers=None, settings=None):
     appointment, if the user wants to."""
 
     user_start, user_end = desired_time.split(" - ") # desired_time like 08:00 - 10:00
-    user_start_obj = datetime.strptime(user_start, "%H:%M").time()
-    user_end_obj = datetime.strptime(user_end, "%H:%M").time()
+    user_start_obj = datetime.datetime.strptime(user_start, "%H:%M").time()
+    user_end_obj = datetime.datetime.strptime(user_end, "%H:%M").time()
     first_available_time = None
     for date in st.session_state.found_dates:
         if not st.session_state.found_slots.get(date):
@@ -169,12 +177,11 @@ def desired_time_request(desired_time, headers=None, settings=None):
         for available_time, value in st.session_state.found_slots[date].items(): # mentioned above, the key is the start time
             if not first_available_time:
                 first_available_time = value
-            available_time_obj = datetime.strptime(available_time, "%H:%M").time()
+            available_time_obj = datetime.datetime.strptime(available_time, "%H:%M").time()
             if user_start_obj <= available_time_obj <= user_end_obj:
                 print("I have found your desired time")
                 return value
     if st.session_state.random_time == "Ja":
-        print("first available time:", first_available_time)
         return first_available_time
     else:
         print("No availble time slots found according to your desire")
@@ -202,7 +209,6 @@ def construct_encoded_body(body=None, is_second_request=False, addapphours=0):
     seperate_parts = []
     for key, value in body.items():
         if is_second_request and addapphours > 0 and key == 'checkexist':
-            print('checkexist ignored!')
             continue
         elif key in ["start", "end", "tzaccount", 'servicescapacity']:
             seperate_parts.append(f"{key}={value}")
@@ -212,13 +218,9 @@ def construct_encoded_body(body=None, is_second_request=False, addapphours=0):
     if is_second_request and addapphours > 0:
         seperate_parts.append(f'addapphours={addapphours}')
     encoded_body = "&".join(seperate_parts)
-    print('encoded_body:\n' + encoded_body)
     body_bytes = encoded_body.encode('utf-8')
     content_length = len(body_bytes)
-    print('content_length:' , content_length)
     return encoded_body, content_length
-
-
 
 ###############################################################################################################################
 
@@ -234,8 +236,8 @@ def construct_appointment_details(appointment_data=None, user_data=None,
                                 setting=None, book_respose_data=None,
                                 sel_office="", sel_group="", sel_service=""): 
     
-    start_date_obj = datetime.strptime(appointment_data['start'], "%Y-%m-%d %H:%M") # example: 2026-06-03 08:00 
-    end_date_obj = datetime.strptime(appointment_data['end'], "%Y-%m-%d %H:%M") # example: 2026-06-03 08:20 
+    start_date_obj = datetime.datetime.strptime(appointment_data['start'], "%Y-%m-%d %H:%M") # example: 2026-06-03 08:00 
+    end_date_obj = datetime.datetime.strptime(appointment_data['end'], "%Y-%m-%d %H:%M") # example: 2026-06-03 08:20 
 
     return {
         'Amt 🏫': sel_office,

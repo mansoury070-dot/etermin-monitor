@@ -7,6 +7,7 @@ load_dotenv()
 CONFIG_FILE = "user_config.json"
 MY_BOT_TOKEN = os.getenv("MY_TELEGRAM_BOT_TOKEN")
 MY_BOT_USERNAME = "my_appointment_app_bot"
+ENCRYPT_KEY = os.getenv("ENCRYPT_KEY")
 
 
 

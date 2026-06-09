@@ -6,6 +6,7 @@ import parameters as p
 from fragments import generic_flash_message
 import request_handler as rh
 import phonenumbers
+import uuid
 
 ################################################# Home Page #############################################
 
@@ -96,14 +97,15 @@ def render_bot_control(bot_disabled, container):
 
 ############################################# Bot Settings ##############################################
     
-def telegram_activation_callback():
+def telegram_activation_callback(cookie, user_uuid):
     if st.session_state.chat_id:
         msg_text = "Sie sind bereits verizifiert. Sie brauchen nicht mehr hier zu klicken"
         utils.set_flash_message(1, msg_text)
     else:
-        chat_id = rh.check_telegram_verification(MY_BOT_TOKEN)
+        chat_id = rh.check_telegram_verification(MY_BOT_TOKEN, user_uuid)
         if chat_id:
-            utils.save_chat_id(chat_id)
+            encrypted_chat_id = utils.encrypt_chat_id(chat_id)
+            utils.set_cookie(cookie, encrypted_chat_id)
             st.session_state.chat_id = chat_id
             msg_text = "Telegram-Verifizierung erfolgreich! Sie erhalten eine Benachrichtigung, sobald ein Termin gefunden wird."
             utils.set_flash_message(2, msg_text)
@@ -145,12 +147,14 @@ def render_reservation_options():
             "trotzdem irgendeinen verfügbaren Termin reservieren lassen?", options= decision_options, 
             key='ui_decision', on_change=decision_change_callback)
 
-def render_telegram_options():  
-    telegram_link = f"https://t.me/{MY_BOT_USERNAME}?start"
+def render_telegram_options(cookie):
+    if "user_uuid" not in st.session_state:
+        st.session_state.user_uuid = str(uuid.uuid4())
+    telegram_link = f"https://t.me/{MY_BOT_USERNAME}?start={st.session_state.user_uuid}"
     st.write("um Benachrichtigungen zu erhalten, klicken Sie bitte auf den folgenden Link und starten Sie eine Unterhaltung mit dem Bot:", )
     st.link_button("Telegram Bot aktivieren", telegram_link, disabled=st.session_state.bot_running)
     st.caption("Nachdem Sie den Bot aktiviert haben, klicken Sie auf die Schaltfläche unten, um die Verifizierung abzuschließen.")
-    st.button("Ich habe den Bot aktiviert", disabled=st.session_state.bot_running, on_click=telegram_activation_callback)
+    st.button("Ich habe den Bot aktiviert", disabled=st.session_state.bot_running, on_click=telegram_activation_callback, args=[cookie, st.session_state.user_uuid])
 
     generic_flash_message([msg_id for msg_id in st.session_state.flash_messages.keys()])
 #########################################################################################################

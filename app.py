@@ -1,4 +1,5 @@
 import streamlit as st
+import extra_streamlit_components as stx
 import components as comp
 import request_handler as rh
 import utils
@@ -6,9 +7,10 @@ import parameters as p
 from fragments import check_appointments
 from constants import OFFICE_COLLECTION
 
+cookie = stx.CookieManager() 
 st.set_page_config(page_title="Duisburg Termin Bot", page_icon="📅", layout="wide")
 
-utils.initialize_session_state()
+utils.initialize_session_state(cookie)
 
 ############################################### Home Page ############################################################
 if st.session_state.current_page == "home_page":
@@ -25,11 +27,12 @@ if st.session_state.current_page == "home_page":
             webid = OFFICE_COLLECTION.get(office)[0]
             header_key = f"appointment_headers_{office}"
             services_key = f"services_{office}"
-            if not st.session_state.get(header_key, {}): # I am storing the header in the session to avoid creating it with every get request
+            if not st.session_state.get(header_key, {}): 
+                # I am storing the header in the session to avoid creating it with every get request
                 st.session_state[header_key] = p.construct_headers(webid)
                 
             if not st.session_state.get(services_key, {}):
-                # Cahing the settings parameters
+                # Cahing the settings parameters so we do not need to fetch it with every rerun
                 with st.spinner("Lade verfügbare Dienstleistungen..."):
                     st.session_state[services_key] = rh.get_services(headers=st.session_state[header_key], office=office)
             groups_dict = st.session_state.get(services_key)
@@ -63,7 +66,7 @@ if st.session_state.current_page == "home_page":
                 styled_annotation = utils.style_annotation(annontation)
                 if styled_annotation:
                     st.markdown(styled_annotation, unsafe_allow_html=True)
-        st.write(st.session_state)
+                    
 ######################################################################################################################
 
 ######################################################### Work Page ##################################################
@@ -89,11 +92,9 @@ if st.session_state.current_page == "work_page":
                 "oder wählen Sie Telegram Benachrichtigung um eine Nachricht über verfügbaren Termine zu bekommen!")
             comp.render_reservation_options()
         if st.session_state.selected_method == "Telegram Benachrichtigung":
-            comp.render_telegram_options()
+            comp.render_telegram_options(cookie)
         st.divider()
 
-        st.write(st.session_state)
-    
 ######################################################################################################################
 
 ######################################################### Column 2 : Form ############################################

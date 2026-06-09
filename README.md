@@ -73,12 +73,18 @@ To set up and run this project locally, you need to install the required depende
 To receive real-time notifications for available appointments, you need to configure your Telegram bot credentials:
 
 1. **Create a Bot**: Open Telegram, search for **@BotFather**, and create a new bot to receive your `BOT_TOKEN`.
+2. **Generate an Encryption Key**: You need a secure key to encrypt the cookies. Open your terminal and run the following Python command to generate one:
+   
+   ```bash
+   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+  ```
 2. **Configure Environment**: 
-   - Create `.env` file in the project root and add:
+   - Create `.env` file in the project root and add your bot token along with the newly generated encryption key:
 
-```text
+  ```text
      MY_TELEGRAM_BOT_TOKEN=your_telegram_bot_token_here
-```
+     ENCRYPT_KEY=your_generated_encryption_key_here
+  ```
 
 ---
 

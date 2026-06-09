@@ -20,7 +20,6 @@ def generic_flash_message(msg_ids):
             
             if time_passed >= 3:
                 del st.session_state.flash_messages[msg_id]
-                #st.rerun()
             else:
                 st.error(msg_data["message"]) if msg_id == 3 else st.info(msg_data["message"])
 

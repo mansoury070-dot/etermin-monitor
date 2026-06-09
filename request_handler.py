@@ -4,7 +4,6 @@ import parameters as p
 from bs4 import BeautifulSoup
 import time
 import json
-from pprint import pprint
 
 ##################################### Fetch general and service-specific parameters ################################
 
@@ -206,7 +205,6 @@ def fetch_form_fields(headers=None, params={}, max_retries=3):
             response.raise_for_status()
 
             print("Form fetched successfully")
-            print(response.text)
             return response.text
        
         except requests.exceptions.HTTPError as http_err:
@@ -248,7 +246,6 @@ def fetch_date_or_time_slots(headers=None, params=None, max_retries=3):
                 dates = []
                 for date in data:
                     dates.append(date["start"].split("T")[0]) #start:"2026-05-29T00:00:00" --> 2026-05-29
-                print(dates)
                 return dates
             slots = {} # if range search is not activated, it retrieves the available appointments in a specific date
             for slot in data:
@@ -295,7 +292,7 @@ def fetch_date_or_time_slots(headers=None, params=None, max_retries=3):
 
 #################################################### Telegram #################################################################
 
-def check_telegram_verification(bot_token, max_retries=3):
+def check_telegram_verification(bot_token, user_uuid, max_retries=3):
     """Check Telegram updates for the specific code.
     Returns the Chat ID if found, otherwise returns None.
     Expected Telegram data structure
@@ -328,14 +325,13 @@ def check_telegram_verification(bot_token, max_retries=3):
             response.raise_for_status()
 
             data = response.json()
-            pprint(data)
             result_list = data.get("result", [])
             if not result_list:
                 return ""
             for item in result_list:
                 message = item.get("message", {})
                 text = message.get('text', "")
-                if text == "/start": # /start is the command sent by the user. it must be followed with a secret code to identify the right user when the app grows
+                if text == f"/start {user_uuid}": # /start is the command sent by the user followed by the secret code
                     return item["message"]["chat"]["id"]
 
         except requests.exceptions.HTTPError as http_err:
