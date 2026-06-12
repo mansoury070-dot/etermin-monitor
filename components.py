@@ -260,7 +260,7 @@ def render_results():
 
 
     if st.session_state.selected_method == 'Telegram Benachrichtigung':
-        if st.session_state.found_dates["dates"]:
+        if st.session_state.found_dates.get("dates"):
             st.success("🎯 Löttchen Termine! 🕒")
             st.write("📅 **Verfügbare Termine für:**")
             cols = st.columns([1.5, 2.5])
