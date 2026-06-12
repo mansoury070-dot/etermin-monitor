@@ -4,17 +4,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_secret_value(key):
-    if key in st.secrets:
-        return st.secrets[key]
+def get_secret_value(key): # ensure functionallty on both local host and streamlit free servers
+    try:
+        if key in st.secrets:
+            return st.secrets[key]
+    except Exception:
+        pass
     return os.getenv(key)
 
 
 MY_BOT_TOKEN = get_secret_value("MY_TELEGRAM_BOT_TOKEN")
 MY_BOT_USERNAME = "my_appointment_app_bot"
 ENCRYPT_KEY = get_secret_value("ENCRYPT_KEY")
-
-
 
 
 OFFICE_COLLECTION = {
