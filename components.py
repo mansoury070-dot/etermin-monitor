@@ -69,7 +69,7 @@ def start_bot_callback():
     st.session_state.bot_running = True
 
     # When the bot runs again we want to reset all the previous found data 
-    st.session_state.found_dates = []
+    st.session_state.found_dates = {}
     st.session_state.found_slots = {}
     st.session_state.booking_progress = {}
     st.session_state.state_date_key = {}
@@ -105,7 +105,7 @@ def telegram_activation_callback(cookie, user_uuid):
         chat_id = rh.check_telegram_verification(MY_BOT_TOKEN, user_uuid)
         if chat_id:
             encrypted_chat_id = utils.encrypt_chat_id(chat_id)
-            utils.set_cookie(cookie, encrypted_chat_id)
+            utils.set_encrypted_chat_id_cookie(cookie, encrypted_chat_id)
             st.session_state.chat_id = chat_id
             msg_text = "Telegram-Verifizierung erfolgreich! Sie erhalten eine Benachrichtigung, sobald ein Termin gefunden wird."
             utils.set_flash_message(2, msg_text)
@@ -257,12 +257,10 @@ def render_results():
             if st.session_state.booking_progress.get("desired_time", False):
                 st.info("Es gibt verfügbare Termine. Sie entsprechen aber Ihren Wunschzeit nicht !!")
             st.button(" 🔄 erneut versuchen", on_click=start_bot_callback)
-        
 
 
     if st.session_state.selected_method == 'Telegram Benachrichtigung':
-
-        if st.session_state.found_dates:
+        if st.session_state.found_dates["dates"]:
             st.success("🎯 Löttchen Termine! 🕒")
             st.write("📅 **Verfügbare Termine für:**")
             cols = st.columns([1.5, 2.5])
@@ -286,7 +284,7 @@ def render_results():
                 st.session_state.state_date_key = {}
             cols = st.columns([1, 1, 1, 1])
             num_cols = len(cols)
-            for index, date in enumerate(st.session_state.found_dates):
+            for index, date in enumerate(st.session_state.found_dates.get("dates", [])):
                 state_key = f"expanded_{date}"
                 if state_key not in st.session_state.state_date_key:
                     st.session_state.state_date_key[state_key] = False
