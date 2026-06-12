@@ -59,7 +59,7 @@ def check_appointments():
             if st.session_state.selected_method == 'Telegram Benachrichtigung':
                 rh.send_telegram_notification(MY_BOT_TOKEN, st.session_state.chat_id,
                                             f"🎯 Löttchen Termine für {service} gefunden! 🕒\n\n📅 Verfügbare Termine:\n"
-                                            + "\n".join(st.session_state.found_dates))
+                                            + "\n".join(st.session_state.found_dates["dates"]))
                 
             elif st.session_state.selected_method == 'Reservieren':
                 desired_time = st.session_state.desired_time
@@ -78,7 +78,7 @@ def check_appointments():
                                                   appointment_data=found_time, booker_info=booker_info)
                         encoded_body, body_lenght = utils.construct_encoded_body(body=body)
 
-                        book_respose_data = rh.book_appointment(webid=webid, encoded_body=encoded_body, 
+                        book_response_data = rh.book_appointment(webid=webid, encoded_body=encoded_body, 
                                                                 content_length=body_lenght)
                         
                         addapphours = settings.get('addapphours', 0)
@@ -88,9 +88,9 @@ def check_appointments():
                             rh.book_appointment(webid=webid, encoded_body=encoded_body, 
                                                                 content_length=body_lenght)
                             
-                        if book_respose_data and "AdditionalInformation" in book_respose_data: # I only want the book reference from the booking-request respone 
+                        if book_response_data and "AdditionalInformation" in book_response_data: # I only want the book reference from the booking-request respone 
                             st.session_state.book_data = utils.construct_appointment_details(appointment_data=found_time, setting=settings, 
-                                                                user_data=user_data, book_respose_data=book_respose_data, 
+                                                                user_data=user_data, book_response_data=book_response_data, 
                                                                 sel_office=office, sel_group=group, sel_service=service)
                         else:
                             st.session_state.booking_progress["server_response"] = True
