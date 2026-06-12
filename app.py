@@ -18,8 +18,8 @@ if st.session_state.current_page == "home_page":
     col_left, col_center, col_right = st.columns([1, 2, 1])
 
     with col_center:
-        st.markdown("##### Suche Filter")
-        st.info("Bitte wählen Sie das Amt, die Gruppe, in der sich Ihren service befindet, und der Service, in der Sie einen Termin brauchen.",) 
+        st.markdown("##### Suchfilter")
+        st.info("Bitte wähle das Amt, die Gruppe, in der sich der gewünschte Service befindet, und den Service, in dem du einen Termin buchen möchtest.") 
         comp.render_office()
 
         if st.session_state.selection.get("selected_office", "--Bitte wählen--") != "--Bitte wählen--":
@@ -50,11 +50,11 @@ if st.session_state.current_page == "home_page":
                             service = st.session_state.selection["selected_service"]
                             st.session_state.price = st.session_state[services_key][st.session_state.selection["selected_group"]][service].get('price')
                         if st.session_state.selection.get("selected_service", "--Bitte wählen--") == "--Bitte wählen--":
-                            st.info("Bitte wählen Sie eine Dienstleistung aus, um fortzufahren.")
+                            st.info("Bitte wähle eine Dienstleistung aus, um fortzufahren.")
                 else:
-                    st.info("Bitte wählen Sie eine Dienstleistungsgruppe aus, um fortzufahren.")
+                    st.info("Bitte wähle eine Dienstleistungsgruppe aus, um fortzufahren.")
         else:
-            st.info("Bitte wählen Sie eine Behörde aus, um fortzufahren.")
+            st.info("Bitte wähle eine Behörde aus, um fortzufahren.")
 
         is_continue_disabled = utils.should_disable_button((st.session_state.selection["selected_office"] != '--Bitte wählen--'),
                                                             (st.session_state.selection["selected_group"] != '--Bitte wählen--'),
@@ -88,8 +88,8 @@ if st.session_state.current_page == "work_page":
         comp.render_radio()
         if st.session_state.selected_method == 'Reservieren':
             if st.session_state.price is not None and st.session_state.price > 0:
-                st.warning("Der ausgewählte Service ist kostenpflichtig, und muss online bezahlt werden. Reservieren Sie bitte den Termin über die Website" \
-                "oder wählen Sie Telegram Benachrichtigung um eine Nachricht über verfügbaren Termine zu bekommen!")
+                st.warning("Der ausgewählte Service ist kostenpflichtig, und muss online bezahlt werden. Reserviere bitte den Termin über die Website" \
+                "oder wähle Telegram Benachrichtigung aus, um eine Nachricht über verfügbaren Termine zu bekommen!")
             comp.render_reservation_options()
         if st.session_state.selected_method == "Telegram Benachrichtigung":
             comp.render_telegram_options(cookie)

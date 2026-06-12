@@ -99,7 +99,7 @@ def render_bot_control(bot_disabled, container):
     
 def telegram_activation_callback(cookie, user_uuid):
     if st.session_state.chat_id:
-        msg_text = "Sie sind bereits verizifiert. Sie brauchen nicht mehr hier zu klicken"
+        msg_text = "Du bist bereits verizifiert. Du brauchst nicht mehr hier zu klicken"
         utils.set_flash_message(1, msg_text)
     else:
         chat_id = rh.check_telegram_verification(MY_BOT_TOKEN, user_uuid)
@@ -107,11 +107,11 @@ def telegram_activation_callback(cookie, user_uuid):
             encrypted_chat_id = utils.encrypt_chat_id(chat_id)
             utils.set_encrypted_chat_id_cookie(cookie, encrypted_chat_id)
             st.session_state.chat_id = chat_id
-            msg_text = "Telegram-Verifizierung erfolgreich! Sie erhalten eine Benachrichtigung, sobald ein Termin gefunden wird."
+            msg_text = "Telegram-Verifizierung erfolgreich! Du erhältst eine Benachrichtigung, sobald ein Termin gefunden wird."
             utils.set_flash_message(2, msg_text)
 
         else:
-            msg_text = "Telegram-Verifizierung fehlgeschlagen. Bitte stellen Sie sicher, dass Sie den Bot gestartet haben und versuchen Sie es erneut."
+            msg_text = "Telegram-Verifizierung fehlgeschlagen. Bitte stelle sicher, dass du den Bot gestartet hast und versuche es erneut."
             utils.set_flash_message(3, msg_text)
 
 def method_change_callback():
@@ -128,7 +128,7 @@ def render_radio():
     options = ["Reservieren", "Telegram Benachrichtigung"]
     prev_selected_method = st.session_state.get("selected_method", "Reservieren")
     current_index = options.index(prev_selected_method) if prev_selected_method in options else 0
-    st.radio("Möchten Sie den Termin direkt reservieren oder per Benachrichtigung informiert werden?", 
+    st.radio("Möchtest du den Termin direkt reservieren oder per Benachrichtigung informiert werden?", 
             options=options, index=current_index, horizontal=True, disabled=st.session_state.bot_running,
             key='ui_selected_method', on_change=method_change_callback)
     st.divider()
@@ -138,12 +138,12 @@ def render_reservation_options():
     time_options = ["08:00 - 10:00", "10:00 - 12:00", "12:00 - 14:00", "14:00 - 16:00"]
     prev_desired_time = st.session_state.get("desired_time", "08:00 - 10:00")
     current_index = time_options.index(prev_desired_time) 
-    st.radio("Wählen Sie Ihre gewünschte Uhrzeit aus", options=time_options, index=current_index, key='ui_desired_time', on_change=desired_time_change_callback)
+    st.radio("Wähle deine gewünschte Uhrzeit aus", options=time_options, index=current_index, key='ui_desired_time', on_change=desired_time_change_callback)
 
     decision_options = ["Ja", "Nein"]
     prev_decision = st.session_state.get("decision", "Nein")
     current_index = decision_options.index(prev_decision)
-    st.radio("Ich versuche, den passenden Termin für Sie zu finden. Falls es keinen gibt, möchten Sie" \
+    st.radio("Ich versuche, den passenden Termin für Sie zu finden. Falls es keinen gibt, möchtest du" \
             "trotzdem irgendeinen verfügbaren Termin reservieren lassen?", options= decision_options, 
             key='ui_decision', on_change=decision_change_callback)
 
@@ -151,9 +151,9 @@ def render_telegram_options(cookie):
     if "user_uuid" not in st.session_state:
         st.session_state.user_uuid = str(uuid.uuid4())
     telegram_link = f"https://t.me/{MY_BOT_USERNAME}?start={st.session_state.user_uuid}"
-    st.write("um Benachrichtigungen zu erhalten, klicken Sie bitte auf den folgenden Link und starten Sie eine Unterhaltung mit dem Bot:", )
+    st.write("Um Benachrichtigungen zu erhalten, klicke bitte auf den folgenden Link und starte eine Unterhaltung mit dem Bot:", )
     st.link_button("Telegram Bot aktivieren", telegram_link, disabled=st.session_state.bot_running)
-    st.caption("Nachdem Sie den Bot aktiviert haben, klicken Sie auf die Schaltfläche unten, um die Verifizierung abzuschließen.")
+    st.caption("Nachdem du den Bot aktiviert hast, klicke auf die Schaltfläche unten, um die Verifizierung abzuschließen.")
     st.button("Ich habe den Bot aktiviert", disabled=st.session_state.bot_running, on_click=telegram_activation_callback, args=[cookie, st.session_state.user_uuid])
 
     generic_flash_message([msg_id for msg_id in st.session_state.flash_messages.keys()])
@@ -165,7 +165,7 @@ def render_form(form_fields):
     user_data = {}
     st.markdown("##### Reservierungsdaten")
     
-    with st.form("Gebem Sie Ihre Daten ein"):
+    with st.form("Gib deine Daten ein"):
         is_disabled = True if st.session_state.get('selected_method', 'Reservieren') == "Telegram Benachrichtigung" else False
         for field in form_fields:
             if field["type"] == "select":
@@ -191,7 +191,7 @@ def render_form(form_fields):
                     continue
 
                 entered_value = st.text_input(f'{field["label"]} {"*" if field["mandatory"] else ""}', 
-                                                placeholder=f"geben Sie Ihre {field['label']} ein",
+                                                placeholder=field['label'],
                                                 disabled=is_disabled or st.session_state.bot_running,
                                                 value=st.session_state.get("user_data", {}).get(field["for"], ""))
                 if entered_value and field["for"] == "Phone":
@@ -239,7 +239,7 @@ def render_status():
 def render_results():
     if st.session_state.selected_method == 'Reservieren':
         if st.session_state.book_data:
-            st.success("Whoooopa!! der Termin wurde erfolgreich gebucht. Eine Email wurde Ihnen geschickt. Bestätigen Sie Bitte den Termin über den Link in Ihrer Email.")
+            st.success("Whoooopa!! der Termin wurde erfolgreich gebucht. Es wurde dir eine Email geschickt. Bitte bestätige den Termin über den Link in deiner Email.")
             st.subheader("Termin Details")
             for key, value in st.session_state.book_data.items():
                 col1, col2 = st.columns([1, 3])
@@ -252,10 +252,10 @@ def render_results():
                 st.error("Buchung fehlgeschlagen. Keine Bestätigung vom Server bekommen")
 
             if st.session_state.booking_progress.get("limit_reached", False):
-                st.error("Termin gefunden, aber das Buchungslimit wurde erreicht. Versuchen Sie bitte nochmal mit einem weiteren Termin!")
+                st.error("Termin gefunden, aber das Buchungslimit wurde erreicht. Versuche es bitte nochmal mit einem weiteren Termin!")
 
             if st.session_state.booking_progress.get("desired_time", False):
-                st.info("Es gibt verfügbare Termine. Sie entsprechen aber Ihren Wunschzeit nicht !!")
+                st.info("Es gibt verfügbare Termine, die jedoch nicht deiner Wunschzeit entsprechen !!")
             st.button(" 🔄 erneut versuchen", on_click=start_bot_callback)
 
 
