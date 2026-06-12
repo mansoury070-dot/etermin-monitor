@@ -25,7 +25,7 @@ def initialize_session_state(cookie):
             "price": None,
             "selected_method": "Reservieren",
             "bot_running": False,
-            "found_dates": [],
+            "found_dates": {},
             "found_slots": {},
             "state_date_key": {},
             "user_data": {},
@@ -41,8 +41,8 @@ def initialize_session_state(cookie):
             if key not in st.session_state:
                 st.session_state[key] = value
     
-    if "chat_id" not in st.session_state or not st.session_state["chat_id"]: # "or" is essential here, because get_cookie() returns None with the first run!
-        st.session_state["chat_id"] = get_cookie(cookie)
+    if "chat_id" not in st.session_state or not st.session_state["chat_id"]: # "or" is essential here, because get_decrypted_chat_id_cookie() returns None with the first run!
+        st.session_state["chat_id"] = get_decrypted_chat_id_cookie(cookie)
 
 ###############################################################################################################################
 
@@ -73,28 +73,40 @@ def set_next_check_time(check_interval):
 #################################################### Form Utils ###############################################################
 
 def form_parser(html_text):
+    """Extract the form fields from the form fetched as HTML"""
+
     soup = BeautifulSoup(html_text, "html.parser")
     divs = soup.find_all("div")
     extracted_fields = []
 
     for div in divs:
         field_info = {}
-        retrieved_tag = div.find(["input", "select", "textarea"])
+        retrieved_tag = div.find(["input", "select", "textarea"]) # only these tags are relevant
         if not retrieved_tag:
             continue
+        # mandatoriness can either be as a class or as a tag
         mandatory_label = div.find("span", class_="mandatory")
         mandatory_tag = retrieved_tag.get("data-required") in ["true", "True"]
+
+        # the form comes as follows: <div> <label for="..."></label> <input or select or.. ...> </div>
         label_tag = div.find("label")
         if label_tag:
             label_text = label_tag.get_text().strip()
+            # remove the mandatory sign * to ensure clean extraction of the field names, 
+            #and add it dynamically in the form in components.py using field['mandatory']
             label = label_text[:-1].strip() if label_text.endswith('*') else label_text
-            field_info["for"] = label_tag.get("for", "")
+            field_info["for"] = label_tag.get("for", "") # the english name of the field, will be used a a key in user_data dictionary
+        
         else:
+            # it is not the case but to ensure more robustness
             label = retrieved_tag.get("placeholder") or retrieved_tag.get("name")
             field_info["for"] = ""
+
         field_info["label"] = label
         field_info['mandatory'] = bool(mandatory_label or mandatory_tag)
         field_info["type"] = retrieved_tag.name
+
+        # some regex fetched have a function called at the end after the $ sign.
         regex = retrieved_tag.get("data-regex", "")
         for i in range(-1, -len(regex) -1, -1):
             if regex[i] == "$":
@@ -105,7 +117,8 @@ def form_parser(html_text):
 
         if retrieved_tag.name == "select":
             options = retrieved_tag.find_all("option")
-            field_info["options"] = [opt.get('value') for opt in options]
+            field_info["options"] = [option.get('value') for option in options]
+
         extracted_fields.append(field_info)
 
     #print(json.dumps(extracted_fields, indent=4, ensure_ascii=False))
@@ -116,12 +129,12 @@ def validating_user_input(form_fields, user_data):
     
     validated_data = {}
     for index, (key, value) in enumerate(user_data.items()):
-        if form_fields[index].get("Regex"):
+        if form_fields[index].get("Regex"): # validate only the fields that have a regex with it.
             is_match = re.fullmatch(form_fields[index]["Regex"], value, re.IGNORECASE)
             validated_data[key] = True if is_match else False
 
     if not all(validated_data.values()):
-        string = "\n- ".join([f"{key} ungültig" if not value else "" for key, value in validated_data.items()])
+        string = "\n - ".join([f"{key} ungültig" for key, value in validated_data.items() if not value])
         st.error("Bitte prüfen Sie Ihre Eingaben\n"+ string)
         return False
     else:
@@ -133,27 +146,28 @@ def validating_user_input(form_fields, user_data):
 
 ######################################################## Telegram Utils #######################################################
 
-
 token_bytes = ENCRYPT_KEY.encode()
 cipher = Fernet(token_bytes)
 
-
 def encrypt_chat_id(chat_id):
-    encrypted_chat_id = cipher.encrypt(str(chat_id).encode())
+    """Encrypt the Telegram chat id before storing it in cookies. Since cookies are shared across all applications on the same domain.
+    Encryption prevents users or other applications on the same domain from retrieving the real chat ID"""
+
+    encrypted_chat_id = cipher.encrypt(str(chat_id).encode()) # the string passed to encrypt() must be converted to bytes.
     return encrypted_chat_id.decode()
 
-def set_cookie(cookie, encrypted_value):
+def set_encrypted_chat_id_cookie(cookie, encrypted_value):
     expiration_date = datetime.datetime.now() + datetime.timedelta(days=100)
     cookie.set(cookie="telegram_chat_id", val=encrypted_value, expires_at=expiration_date)
 
-def get_cookie(cookie):
+def get_decrypted_chat_id_cookie(cookie):
     chat_id_encrypted = cookie.get(cookie="telegram_chat_id")
     if chat_id_encrypted:
         try:
             chat_id_encrypted_bytes = chat_id_encrypted.encode()
             chat_id = cipher.decrypt(chat_id_encrypted_bytes)
             return chat_id.decode()
-        except InvalidToken:
+        except InvalidToken: # perhaps the chat id has been manipulated by the user or other applications!
             return None
     return None
 
@@ -162,20 +176,22 @@ def get_cookie(cookie):
 ############################################# Booking Request Helpers #########################################################  
 
 def desired_time_request(desired_time, headers=None, settings=None):
-    """Search for the desired appointment time entered by the user. If it fails to find one, it take the first available
+    """Search for the desired appointment time entered by the user. If it fails to find one, it takes the first available
     appointment, if the user wants to."""
 
     user_start, user_end = desired_time.split(" - ") # desired_time like 08:00 - 10:00
     user_start_obj = datetime.datetime.strptime(user_start, "%H:%M").time()
     user_end_obj = datetime.datetime.strptime(user_end, "%H:%M").time()
     first_available_time = None
-    for date in st.session_state.found_dates:
+
+    for date in st.session_state.found_dates["dates"]:
+        # found_slots keys are dates containing multiple timeslots, e.g. {"2026-06-05": {"08:00": {....}}}
         if not st.session_state.found_slots.get(date):
             time_slot_params = p.date_or_time_slot_params(target_date=date, settings=settings)
             slots = rh.fetch_date_or_time_slots(headers=headers, params=time_slot_params)
             st.session_state.found_slots[date] = slots
-        for available_time, value in st.session_state.found_slots[date].items(): # mentioned above, the key is the start time
-            if not first_available_time:
+        for available_time, value in st.session_state.found_slots[date].items(): # mentioned above, the key here is the start time
+            if not first_available_time: # take the first available time it encounters
                 first_available_time = value
             available_time_obj = datetime.datetime.strptime(available_time, "%H:%M").time()
             if user_start_obj <= available_time_obj <= user_end_obj:
@@ -184,40 +200,53 @@ def desired_time_request(desired_time, headers=None, settings=None):
     if st.session_state.random_time == "Ja":
         return first_available_time
     else:
-        print("No availble time slots found according to your desire")
+        print("No available time slots found according to your desire")
         return {}
 
 def create_bookerinfo(user_data, form_data, show_reminder=False):
+    """bookerinfo is a string concatenated from the user data and will be used in the booking request's body"""
+
     entries = ['Anrede', 'Vorname', 'Name', 'Strasse', 'PLZ', 'Ort', 'Telefon', 'E-Mail', 'Geburtsdatum', 'Notes']
     for index, (_, value) in enumerate(user_data.items()):
-            german_variant = form_data[index]["label"]
-            entry_string = f'{german_variant}\t{value}\r\n'
+        german_variant = form_data[index]["label"] # labels in bookerinfo must be in german, as the source JavaScript code
+        entry_string = f'{german_variant}\t{value}\r\n'
 
-            if german_variant in entries:
-                entries_index = entries.index(german_variant)
-                entries[entries_index] = entry_string
+        # replace the value in entries with the concatenated string
+        if german_variant in entries:
+            entries_index = entries.index(german_variant)
+            entries[entries_index] = entry_string
     
-    entries = [entry for entry in entries if "\t" in entry]
+    # remove the fields that stayed untouched
+    entries = [entry for entry in entries if "\t" in entry] 
 
     bookerinfo = "".join(entries)
     bookerinfo += "\t\r\n"
+
+    # if the office has a reminder in their settings
     if show_reminder:
         bookerinfo += "Terminerinnerung\t12 Stunden vor Termin\r\n"
     return bookerinfo
 
 def construct_encoded_body(body=None, is_second_request=False, addapphours=0):
-    seperate_parts = []
+    """Construct the URL-encoded body for the booking request, mimicking the source JavaScript logic"""
+
+    separate_parts = []
     for key, value in body.items():
+        # ignore the parameter "checkexist" if it is the second request!
         if is_second_request and addapphours > 0 and key == 'checkexist':
             continue
+
+        # the following parameters are not URL-encoded in the body (simulating what the JavaScript code does)
         elif key in ["start", "end", "tzaccount", 'servicescapacity']:
-            seperate_parts.append(f"{key}={value}")
+            separate_parts.append(f"{key}={value}")
         
         else:
-            seperate_parts.append(urllib.parse.urlencode({key: value}, quote_via=urllib.parse.quote, safe='()'))
+            separate_parts.append(urllib.parse.urlencode({key: value}, quote_via=urllib.parse.quote, safe='()'))
+
+    # in the second request we must add the parameter "addapphours" without URL-encoding and remove "checkexist"
     if is_second_request and addapphours > 0:
-        seperate_parts.append(f'addapphours={addapphours}')
-    encoded_body = "&".join(seperate_parts)
+        separate_parts.append(f'addapphours={addapphours}')
+    encoded_body = "&".join(separate_parts)
     body_bytes = encoded_body.encode('utf-8')
     content_length = len(body_bytes)
     return encoded_body, content_length
@@ -226,16 +255,18 @@ def construct_encoded_body(body=None, is_second_request=False, addapphours=0):
 
 ################################################## UI Helpers #################################################################
 def set_flash_message(msg_id, msg_text):
-    if not st.session_state.flash_messages.get(msg_id, None):
+    """Sets a flash messages in the session_state, that will disappear after a period of time"""
+
+    if msg_id not in st.session_state.flash_messages:
         st.session_state.flash_messages[msg_id] = {
             "message": msg_text,
             "message_time": time.time()
         }
 
-def construct_appointment_details(appointment_data=None, user_data=None, 
-                                setting=None, book_respose_data=None,
+def construct_appointment_details(appointment_data=None, user_data=None, setting=None, book_response_data=None,
                                 sel_office="", sel_group="", sel_service=""): 
-    
+    """Constructs the conclusion shown to the user after successfully booking an appointment"""
+
     start_date_obj = datetime.datetime.strptime(appointment_data['start'], "%Y-%m-%d %H:%M") # example: 2026-06-03 08:00 
     end_date_obj = datetime.datetime.strptime(appointment_data['end'], "%Y-%m-%d %H:%M") # example: 2026-06-03 08:20 
 
@@ -247,7 +278,7 @@ def construct_appointment_details(appointment_data=None, user_data=None,
         'Terminbeginn ​🏃‍♂️': start_date_obj.time(), # --> 08:00
         'Terminende 💃🏼': end_date_obj.time(), # --> 08:20
         'Terminort 🏢': f"{setting['street']}, {setting['zip']} {setting['city']}", #the place where you must attend to the appointment
-        'Buchungsreferenz 🔢': book_respose_data['AdditionalInformation'],
+        'Buchungsreferenz 🔢': book_response_data['AdditionalInformation'],
         'Name ​🪪': f"{user_data['Salutation']} {user_data['FirstName']} {user_data['LastName']}", # Herr John Doe
         'Adresse 🏡': f"{user_data['Street']}, {user_data['ZIP']} {user_data['City']}", # some street 45433, New York
         'Telefonnummer ☎️': user_data['Phone'],
@@ -255,12 +286,16 @@ def construct_appointment_details(appointment_data=None, user_data=None,
     }
 
 def style_annotation(html_snippet):
-    unimportant_html = r'<b><u>Hier klicken</u> und damit die Dienstleistung auswählen, dann \\*"weiter zur Terminwahl\\*"\.*</b><br><br>'
+    """Mimics the st.info() styling in streamlit and removes unwanted HTML snippets"""
 
-
+    # remove the following phrase, because the website uses it as a description to the appointment
+    unimportant_html = r'<b><u>Hier klicken</u> und damit die Dienstleistung auswählen, dann \\*"weiter zur Terminwahl\\*"\.*</b><br><br>\n*'
     html_snippet = re.sub(unimportant_html, "", html_snippet, flags=re.IGNORECASE)
-        
-    refined_html = re.sub(r'href=["\']?([^ >"\']+)["\']?', r'href="\1"', html_snippet)
+    
+    # the responses from the server are not consistent, sometimes the href attribute comes with a "" or '' or even without quotation marks
+    # add quotation marks "" to the href attribute in all cases to display it properly in the st.markdown() in app.py
+    refined_html = re.sub(r'href=["\']?([^\s>"\']+)["\']?', r'href="\1"', html_snippet)
+
     styled_snippet = f"""
     <div style="
         background-color: #1c83ff1a; 
