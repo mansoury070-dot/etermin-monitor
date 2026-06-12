@@ -33,7 +33,8 @@ Due to the high demand and limited availability of appointments, this bot contin
   The bot is currently not optimized for standard services like `BÜRGERSERVICE`. Since those services have wider availability throughout the week, the bot's current lack of advanced date filtering makes it less suitable for them.
 
 ## TODO / Upcoming Features
-
+- [ ] **Architecture Restructuring & State Persistence:**
+      Address Streamlit's data loss upon page refresh by decoupling the core logic from the user interface. The frontend will be transitioned to serve strictly for presentation, while the backend logic will be migrated to FastAPI, integrated with a database to ensure persistent sessions and reliable data handling.
 - [ ] **Advanced Date Filtering:**
       Implement customizable filters to allow users to specify preferred dates, times, or specific days of the week, ensuring the bot only targets relevant slots.
 - [ ] **Direct Telegram Booking:**
@@ -77,8 +78,8 @@ To receive real-time notifications for available appointments, you need to confi
    
    ```bash
    python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-  ```
-2. **Configure Environment**: 
+   ```
+3. **Configure Environment**: 
    - Create `.env` file in the project root and add your bot token along with the newly generated encryption key:
 
   ```text
