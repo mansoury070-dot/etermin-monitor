@@ -94,19 +94,17 @@ if st.session_state.current_page == "work_page":
         if st.session_state.selected_method == "Telegram Benachrichtigung":
             comp.render_telegram_options(cookie)
         st.divider()
-
+        st.write(st.session_state)
 ######################################################################################################################
 
 ######################################################### Column 2 : Form ############################################
    
     with col2:
-        office = st.session_state.selection["selected_office"]
-        form_key = f"form_{office}"
+        current = utils.get_current_settings()
+        form_key = f"form_{current.office}"
         if form_key not in st.session_state:
-            header_key = f"appointment_headers_{office}"
-            settings = st.session_state[f"services_{office}"][st.session_state.selection["selected_group"]][st.session_state.selection["selected_service"]]
-            params = p.form_params(settings=settings)
-            form_html = rh.fetch_form_fields(headers=st.session_state[header_key], params=params)
+            params = p.form_params(settings=current.settings)
+            form_html = rh.fetch_form_fields(headers=current.headers, params=params)
             form_fields = utils.form_parser(form_html)
             st.session_state[form_key] = form_fields
 
@@ -120,6 +118,8 @@ if st.session_state.current_page == "work_page":
         conditions = [st.session_state.is_user_data_valid, st.session_state.price is not None and st.session_state.price <= 0]
     elif st.session_state.get('selected_method') == 'Telegram Benachrichtigung':
         conditions = [bool(st.session_state.chat_id)]
+    elif st.session_state.get('selected_method') == 'Verfügbare Termine angucken':
+        conditions = [True]
     else:
         conditions = [False]
     is_start_button_disabled = utils.should_disable_button(*conditions)

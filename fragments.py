@@ -41,14 +41,10 @@ def check_appointments():
         return
 
     # If cooldown is over and do the get request to check for appointments.
-    office = st.session_state.selection["selected_office"]
-    webid = OFFICE_COLLECTION[st.session_state.selection["selected_office"]][0] #like "stadt_duisburg_zul"
-    group = st.session_state.selection["selected_group"]
-    service = st.session_state.selection["selected_service"]
-    headers = st.session_state[f"appointment_headers_{office}"]
-    settings = st.session_state[f"services_{office}"][group][service]
-    params = p.date_or_time_slot_params(settings=settings)
-    data = rh.fetch_date_or_time_slots(headers=headers, params=params)
+    current = utils.get_current_settings()
+    webid = OFFICE_COLLECTION[current.office][0] #like "stadt_duisburg_zul"
+    params = p.date_or_time_slot_params(settings=current.settings)
+    data = rh.fetch_date_or_time_slots(headers=current.headers, params=params)
 
     # if dates that contain appointmets found, send notification or book a desired appointment.
     if data:
@@ -58,30 +54,30 @@ def check_appointments():
         try:
             if st.session_state.selected_method == 'Telegram Benachrichtigung':
                 rh.send_telegram_notification(MY_BOT_TOKEN, st.session_state.chat_id,
-                                            f"🎯 Löttchen Termine für {service} gefunden! 🕒\n\n📅 Verfügbare Termine:\n"
+                                            f"🎯 Löttchen Termine für {current.service} gefunden! 🕒\n\n📅 Verfügbare Termine:\n"
                                             + "\n".join(st.session_state.found_dates["dates"]))
                 
             elif st.session_state.selected_method == 'Reservieren':
                 desired_time = st.session_state.desired_time
-                found_time = utils.desired_time_request(desired_time, headers=headers, settings=settings)
+                found_time = utils.desired_time_request(desired_time, headers=current.headers, settings=current.settings)
 
                 if found_time:
                     user_data = st.session_state.user_data
-                    params = p.limit_reached_params(date=found_time['start'], settings=settings, user_data=user_data)
-                    can_book = rh.limit_reached_request(headers=headers, params=params)
+                    params = p.limit_reached_params(date=found_time['start'], settings=current.settings, user_data=user_data)
+                    can_book = rh.limit_reached_request(headers=current.headers, params=params)
 
                     if can_book:
-                        form_data = st.session_state[f"form_{office}"]
-                        show_reminder = settings['showreminder']
-                        booker_info = utils.create_bookerinfo(user_data, form_data, show_reminder=show_reminder)
-                        body= p.construct_book_data(webid, settings=settings, user_data=user_data, form_data=form_data,
-                                                  appointment_data=found_time, booker_info=booker_info)
+                        show_reminder = current.settings['showreminder']
+                        booker_info = utils.create_bookerinfo(user_data, current.form_data, show_reminder=show_reminder)
+                        body= p.construct_book_data(webid, settings=current.settings, user_data=user_data,
+                                                    form_data=current.form_data, appointment_data=found_time, 
+                                                    booker_info=booker_info)
                         encoded_body, body_lenght = utils.construct_encoded_body(body=body)
 
                         book_response_data = rh.book_appointment(webid=webid, encoded_body=encoded_body, 
                                                                 content_length=body_lenght)
                         
-                        addapphours = settings.get('addapphours', 0)
+                        addapphours = current.settings.get('addapphours', 0)
                         if addapphours > 0:
                             encoded_body, body_lenght = utils.construct_encoded_body(body=body, is_second_request=True, 
                                                                                      addapphours=addapphours)
@@ -89,9 +85,9 @@ def check_appointments():
                                                                 content_length=body_lenght)
                             
                         if book_response_data and "AdditionalInformation" in book_response_data: # I only want the book reference from the booking-request respone 
-                            st.session_state.book_data = utils.construct_appointment_details(appointment_data=found_time, setting=settings, 
+                            st.session_state.book_data = utils.construct_appointment_details(appointment_data=found_time, setting=current.settings, 
                                                                 user_data=user_data, book_response_data=book_response_data, 
-                                                                sel_office=office, sel_group=group, sel_service=service)
+                                                                sel_office=current.office, sel_group=current.group, sel_service=current.service)
                         else:
                             st.session_state.booking_progress["server_response"] = True
                     else:

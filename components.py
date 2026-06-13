@@ -18,8 +18,8 @@ def office_change_callback():
     st.session_state.selection["selected_office"] = st.session_state.ui_selected_office # I got problem with redendering the right value without using the key ui_selected_office/group .. etc
     st.session_state.selection["selected_group"] = "--Bitte wählen--"
     st.session_state.selection["selected_service"] = "--Bitte wählen--"
-    st.session_state.bot_running = False
-    st.session_state.user_data = {}
+    utils.reset_session_keys(["bot_running", "user_data", "found_dates", "found_slots", "clicked_one_time",
+                              "booking_progress", "state_date_key", "book_data"])
 
 def group_change_callback():
     st.session_state.selection["selected_group"] = st.session_state.ui_selected_group
@@ -66,14 +66,18 @@ def render_continue_button(is_continue_disabled):
 
 ########################################### Bot Control Buttons #########################################
 def start_bot_callback():
-    st.session_state.bot_running = True
-
-    # When the bot runs again we want to reset all the previous found data 
-    st.session_state.found_dates = {}
-    st.session_state.found_slots = {}
-    st.session_state.booking_progress = {}
-    st.session_state.state_date_key = {}
-    st.session_state.book_data = {}
+    if st.session_state.get('selected_method') == 'Verfügbare Termine angucken':
+        st.session_state.found_dates = {}
+        current = utils.get_current_settings()
+        date_params = p.date_or_time_slot_params(settings=current.settings)
+        dates = rh.fetch_date_or_time_slots(headers=current.headers, params=date_params)
+        if dates:
+            st.session_state.found_dates = dates
+        st.session_state.clicked_one_time = True
+    else:
+        st.session_state.bot_running = True
+        utils.reset_session_keys(["found_dates", "found_slots", "booking_progress", 
+                                  "state_date_key", "book_data", "clicked_one_time"])
 
 def stop_bot_callback():
     st.session_state.bot_running = False
@@ -125,8 +129,8 @@ def decision_change_callback():
 
 def render_radio():  
     st.markdown("##### Bot-Einstellungen")
-    options = ["Reservieren", "Telegram Benachrichtigung"]
-    prev_selected_method = st.session_state.get("selected_method", "Reservieren")
+    options = ["Telegram Benachrichtigung", "Reservieren", "Verfügbare Termine angucken"]
+    prev_selected_method = st.session_state.get("selected_method", "Telegram Benachrichtigung")
     current_index = options.index(prev_selected_method) if prev_selected_method in options else 0
     st.radio("Möchtest du den Termin direkt reservieren oder per Benachrichtigung informiert werden?", 
             options=options, index=current_index, horizontal=True, disabled=st.session_state.bot_running,
@@ -166,7 +170,7 @@ def render_form(form_fields):
     st.markdown("##### Reservierungsdaten")
     
     with st.form("Gib deine Daten ein"):
-        is_disabled = True if st.session_state.get('selected_method', 'Reservieren') == "Telegram Benachrichtigung" else False
+        is_disabled = True if st.session_state.get('selected_method') in ["Telegram Benachrichtigung", "Verfügbare Termine angucken"] else False
         for field in form_fields:
             if field["type"] == "select":
                 options = field["options"]
@@ -214,27 +218,57 @@ def render_form(form_fields):
 ################################################# Status and Results ####################################
 
 def fetch_slots_callback(state_key, date):
+    print("triggered successfully")
     current_state_key = st.session_state.state_date_key[state_key]
     for key in st.session_state.state_date_key:
         st.session_state.state_date_key[key] = False
     st.session_state.state_date_key[state_key] = not current_state_key
 
-    if "found_slots" not in st.session_state:
-        st.session_state.found_slots = {}
+
     if date not in st.session_state.found_slots:
-        office = st.session_state.selection["selected_office"]
-        group = st.session_state.selection["selected_group"]
-        service = st.session_state.selection["selected_service"]
-        settings = st.session_state[f"services_{office}"][group][service]
-        headers = st.session_state[f"appointment_headers_{office}"]
-        params = p.date_or_time_slot_params(target_date=date, settings=settings)
-        st.session_state.found_slots[date] = rh.fetch_date_or_time_slots(headers=headers, params=params)
+        current = utils.get_current_settings()
+        params = p.date_or_time_slot_params(target_date=date, settings=current.settings)
+        st.session_state.found_slots[date] = rh.fetch_date_or_time_slots(headers=current.headers, params=params)
 
 def render_status():
     if st.session_state.get("bot_running", False):
             st.info("Nach Termine im Hintergrund gesucht...")
             st.info(f"Überwachung für Dienst: {st.session_state.selection['selected_service']}"
                     +"\n\n" + f"in {st.session_state.selection['selected_office']}")
+
+def telegram_or_one_time_app_helper():
+    st.success("🎯 Löttchen Termine! 🕒")
+    st.write("📅 **Verfügbare Termine für:**")
+    cols = st.columns([1.5, 2.5])
+    for key, value in st.session_state.selection.items():
+            if key == "selected_office":
+                with cols[0]:
+                    st.write("**Amt 🏫**")
+                with cols[1]:
+                    st.write(f"{value}")
+            elif key == "selected_group":
+                with cols[0]:
+                    st.write("**Gruppe 📋**")
+                with cols[1]:
+                    st.write(f"{value}")
+            else:
+                with cols[0]:
+                    st.write("**Service 🛠️**")
+                with cols[1]:
+                    st.write(f"{value}")
+    if "state_date_key" not in st.session_state:
+        st.session_state.state_date_key = {}
+    cols = st.columns([1, 1, 1, 1])
+    num_cols = len(cols)
+    for index, date in enumerate(st.session_state.found_dates.get("dates", [])):
+        state_key = f"expanded_{date}"
+        if state_key not in st.session_state.state_date_key:
+            st.session_state.state_date_key[state_key] = False
+        arrow_icon = "🔼" if st.session_state.state_date_key[state_key] else "🔽"
+        col = cols[index % num_cols]
+        with col:
+            st.button(f"{arrow_icon} {date} ✅", on_click=fetch_slots_callback, args=[state_key, date])
+    st.divider()
             
 def render_results():
     if st.session_state.selected_method == 'Reservieren':
@@ -261,41 +295,17 @@ def render_results():
 
     if st.session_state.selected_method == 'Telegram Benachrichtigung':
         if st.session_state.found_dates.get("dates"):
-            st.success("🎯 Löttchen Termine! 🕒")
-            st.write("📅 **Verfügbare Termine für:**")
-            cols = st.columns([1.5, 2.5])
-            for key, value in st.session_state.selection.items():
-                    if key == "selected_office":
-                        with cols[0]:
-                            st.write("**Amt 🏫**")
-                        with cols[1]:
-                            st.write(f"{value}")
-                    elif key == "selected_group":
-                        with cols[0]:
-                            st.write("**Gruppe 📋**")
-                        with cols[1]:
-                            st.write(f"{value}")
-                    else:
-                        with cols[0]:
-                            st.write("**Service 🛠️**")
-                        with cols[1]:
-                            st.write(f"{value}")
-            if "state_date_key" not in st.session_state:
-                st.session_state.state_date_key = {}
-            cols = st.columns([1, 1, 1, 1])
-            num_cols = len(cols)
-            for index, date in enumerate(st.session_state.found_dates.get("dates", [])):
-                state_key = f"expanded_{date}"
-                if state_key not in st.session_state.state_date_key:
-                    st.session_state.state_date_key[state_key] = False
-                arrow_icon = "🔼" if st.session_state.state_date_key[state_key] else "🔽"
-                col = cols[index % num_cols]
-                with col:
-                    st.button(f"{arrow_icon} {date} ✅", on_click=fetch_slots_callback, args=[state_key, date])
-            st.divider()
+            telegram_or_one_time_app_helper()
+    
+    if st.session_state.selected_method == 'Verfügbare Termine angucken':
+        if st.session_state.found_dates.get("dates"):
+            telegram_or_one_time_app_helper()
+        else:
+            if st.session_state.clicked_one_time:
+                st.info("Leider gibt es derzeit keine verfügbare Termine!")
 
 def render_times():
-    if st.session_state.selected_method == 'Telegram Benachrichtigung' and st.session_state.state_date_key:
+    if st.session_state.selected_method in ['Telegram Benachrichtigung', 'Verfügbare Termine angucken']  and st.session_state.state_date_key:
         cols = st.columns([1, 1, 1, 1])
         num_cols = len(cols)
         
@@ -305,3 +315,4 @@ def render_times():
                 col = cols[index % num_cols]
                 with col:
                     st.write(f"von {value['start'].split(' ')[1]} bis {value['end'].split(' ')[1]} ✅")
+

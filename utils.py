@@ -9,6 +9,7 @@ from constants import ENCRYPT_KEY
 import request_handler as rh
 import parameters as p
 from cryptography.fernet import Fernet, InvalidToken
+from types import SimpleNamespace
 
 ############################################ Session State Intialization ######################################################
 
@@ -23,7 +24,8 @@ def initialize_session_state(cookie):
                 "selected_service": "--Bitte wählen--"
             },
             "price": None,
-            "selected_method": "Reservieren",
+            "selected_method": "Telegram Benachrichtigung",
+            "clicked_one_time": False,
             "bot_running": False,
             "found_dates": {},
             "found_slots": {},
@@ -171,6 +173,33 @@ def get_decrypted_chat_id_cookie(cookie):
             return None
     return None
 
+###############################################################################################################################
+
+############################################# Variables And Reset #############################################################
+
+def get_current_settings():
+    office = st.session_state.selection["selected_office"]
+    group = st.session_state.selection["selected_group"]
+    service = st.session_state.selection["selected_service"]
+    headers = st.session_state.get(f"appointment_headers_{office}", {})
+    services_dict = st.session_state.get(f"services_{office}", {})
+    settings = services_dict.get(group, {}).get(service, {})
+    form_data = st.session_state.get(f"form_{office}", {})
+    return SimpleNamespace(office=office, group=group, service=service, headers=headers, settings=settings, form_data=form_data)
+
+def reset_session_keys(keys_to_reset=None):
+    if keys_to_reset is not None:
+        for key in keys_to_reset:
+            if key in st.session_state:
+                if isinstance(st.session_state[key], dict):
+                    st.session_state[key] = {}
+                elif isinstance(st.session_state[key], list):
+                    st.session_state[key] = []
+                elif isinstance(st.session_state[key], bool):
+                    st.session_state[key] = False
+                else:
+                    st.session_state[key] = None
+    
 ###############################################################################################################################
 
 ############################################# Booking Request Helpers #########################################################  
