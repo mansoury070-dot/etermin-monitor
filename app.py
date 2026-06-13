@@ -91,10 +91,11 @@ if st.session_state.current_page == "work_page":
                 st.warning("Der ausgewählte Service ist kostenpflichtig, und muss online bezahlt werden. Reserviere bitte den Termin über die Website" \
                 "oder wähle Telegram Benachrichtigung aus, um eine Nachricht über verfügbaren Termine zu bekommen!")
             comp.render_reservation_options()
+            st.divider()
         if st.session_state.selected_method == "Telegram Benachrichtigung":
             comp.render_telegram_options(cookie)
-        st.divider()
-        st.write(st.session_state)
+            st.divider()
+
 ######################################################################################################################
 
 ######################################################### Column 2 : Form ############################################

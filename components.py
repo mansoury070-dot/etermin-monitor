@@ -218,7 +218,6 @@ def render_form(form_fields):
 ################################################# Status and Results ####################################
 
 def fetch_slots_callback(state_key, date):
-    print("triggered successfully")
     current_state_key = st.session_state.state_date_key[state_key]
     for key in st.session_state.state_date_key:
         st.session_state.state_date_key[key] = False
